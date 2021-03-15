@@ -13,6 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build the Docker image
-      run: | 
+      run: |
+        echo "${{ secrets.PAT }}" | docker login ghcr.io -u kidk --password-stdin
         docker build . --file Dockerfile --tag ghcr.io/kidk/k8s-data-replicator:latest
         docker push ghcr.io/kidk/k8s-data-replicator:latest
