@@ -18,6 +18,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"path/filepath"
 	"strconv"
@@ -88,15 +89,14 @@ func main() {
 	// create a client (safe to share across requests)
 	graphQLClient = graphql.NewClient("https://api.newrelic.com/graphql")
 
-	// get configuration in my namespace and parse
-	configuration, err := clientset.CoreV1().ConfigMaps("default").Get(context.TODO(), "nr-replicator-config", metav1.GetOptions{})
+	// get configuration from file
+	yamlConfig, err := ioutil.ReadFile("config.yml")
 	if err != nil {
-		log.Fatal("Unable to read configuration, please check if nr-replicator-config exists", err.Error())
-		panic(err.Error())
+		log.Fatal("Can't read config file", err.Error())
 	}
 
 	// parse configuration  data
-	err = yaml.UnmarshalStrict([]byte(configuration.Data["config"]), &replicatorConfiguration)
+	err = yaml.UnmarshalStrict(yamlConfig, &replicatorConfiguration)
 	if err != nil {
 		log.Fatal("Failed to parse file ", err)
 	} else {
