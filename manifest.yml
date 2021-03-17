@@ -23,7 +23,7 @@ kind: CronJob
 metadata:
   name: newrelic-data-replicator
 spec:
-  schedule: "*/1 * * * *"
+  schedule: "* * * * *"
   jobTemplate:
     spec:
       template:
