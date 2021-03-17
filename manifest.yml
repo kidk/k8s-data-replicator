@@ -1,0 +1,53 @@
+---
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nr-replicator-config
+data:
+  config.yml: |-
+    # Queries to run on the parent account, and replicate to the child accounts
+    #
+    # These queries will only run if there is a 'nr-replicator-accountId' and 'nr-replicator-apiToken'
+    # secret in the namespace.
+    #
+    # Available variables to use, these get replaced before running the query:
+    # - $namespace: Will be replaced with the current namespace
+    queries:
+      - SELECT average(cpuCoresUtilization) as 'cpu-cores-utilization', average(memoryUsedBytes) as 'memory-usage' FROM K8sContainerSample FACET podName, containerName WHERE namespace = '$namespace' SINCE 60 minutes ago
+
+---
+
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: newrelic-data-replicator
+spec:
+  schedule: "*/1 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: newrelic-bundle-newrelic-infrastructure
+
+          containers:
+          - name: newrelic-data-replicator
+            image: ghcr.io/kidk/k8s-data-replicator:latest
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+            - name: config
+              mountPath: /app/
+            env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+
+          volumes:
+          - name: config
+            configMap:
+              name: nr-replicator-config
+
+          restartPolicy: OnFailure
+
+
