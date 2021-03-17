@@ -33,10 +33,11 @@ spec:
           containers:
           - name: newrelic-data-replicator
             image: ghcr.io/kidk/k8s-data-replicator:latest
-            imagePullPolicy: IfNotPresent
+            imagePullPolicy: Always
             volumeMounts:
             - name: config
-              mountPath: /app/
+              mountPath: /home/appuser/app/config.yml
+              subPath: config.yml
             env:
             - name: POD_NAMESPACE
               valueFrom:
@@ -47,7 +48,8 @@ spec:
           - name: config
             configMap:
               name: nr-replicator-config
+              items:
+              - key: config.yml
+                path: config.yml
 
           restartPolicy: OnFailure
-
-
