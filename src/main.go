@@ -210,9 +210,7 @@ func getMetrics(query string, childNamespace string) []telemetry.Gauge {
 					Metadata struct {
 						Facets []string
 					}
-					Results []struct {
-						Facet []string
-					}
+					Results     []map[string]interface{}
 					TotalResult map[string]float64
 				}
 			}
@@ -228,23 +226,26 @@ func getMetrics(query string, childNamespace string) []telemetry.Gauge {
 	var metrics []telemetry.Gauge
 
 	// loop results and prep metrics
-	for name, value := range respData.Actor.Account.Nrql.TotalResult {
+	for _, result := range respData.Actor.Account.Nrql.Results {
 		// prep attributes
 		attributes := map[string]interface{}{}
 		for key, attribute := range respData.Actor.Account.Nrql.Metadata.Facets {
-			attributes[attribute] = respData.Actor.Account.Nrql.Results[0].Facet[key]
+			attributes[attribute] = result["facet"].([]interface{})[key].(string)
 		}
 
 		// set namespace the container is running in
 		attributes["namespace"] = childNamespace
 
-		// add to metrics array
-		metrics = append(metrics, telemetry.Gauge{
-			Timestamp:  time.Now(),
-			Value:      value,
-			Name:       "k8s-replicator." + name,
-			Attributes: attributes,
-		})
+		// for each metric add to metrics array
+		for metricName := range respData.Actor.Account.Nrql.TotalResult {
+			metrics = append(metrics, telemetry.Gauge{
+				Timestamp:  time.Now(),
+				Value:      result[metricName].(float64),
+				Name:       "k8s-replicator." + metricName,
+				Attributes: attributes,
+			})
+		}
+
 	}
 
 	return metrics
