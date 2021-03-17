@@ -27,7 +27,7 @@ Replace the `{{CHILD_ACCOUNT_ID}}` with the ID of the New Relic account where yo
 
 `manifest.yml` contains the queries that will be run to replicate data from master to child accounts. Facets will be added as dimensions to the metric data, including the current namespace. The metrics will show up in New Relic as `k8s-replicator.[name]`. Make sure you have no overlapping `[name]` fields, use `value as [name]` to set it in the NRQL query.
 
-For example the query `SELECT average(cpuCoresUtilization) as 'cpu-cores-utilization', average(memoryUsedBytes) as 'memory-usage' FROM K8sContainerSample FACET podName, containerName WHERE namespace = '$namespace' SINCE 60 minutes ago` will create the `k8s-replicator.cpu-cores-utilization` and `k8s-replicator.memory-usage` metrics with following dimensions: podName, containerName, namespace.
+For example the query `SELECT average(cpuUsedCores) as 'cpu-cores-utilization', average(memoryUsedBytes) as 'memory-usage' FROM K8sContainerSample FACET podName, containerName WHERE namespace = '$namespace' SINCE 60 minutes ago LIMIT 1000` will create the `k8s-replicator.cpu-cores-utilization` and `k8s-replicator.memory-usage` metrics with following dimensions: podName, containerName, namespace.
 
 `manifest.yml` also contains the `schedule` of the replication, by default this is every minute `* * * * *`, but you can change this to every hour if needed `0 * * * *`. The default will create metrics every minute, so keep in mind that this will increase your New Relic data usage and bill. The increase depends on the number of queries in the schedule.
 

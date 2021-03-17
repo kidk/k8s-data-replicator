@@ -14,7 +14,7 @@ data:
     # Available variables to use, these get replaced before running the query:
     # - $namespace: Will be replaced with the current namespace
     queries:
-      - SELECT average(cpuCoresUtilization) as 'cpu-cores-utilization', average(memoryUsedBytes) as 'memory-usage' FROM K8sContainerSample FACET podName, containerName WHERE namespace = '$namespace' SINCE 60 minutes ago
+      - SELECT average(cpuUsedCores) as 'cpu-cores-utilization', average(memoryUsedBytes) as 'memory-usage' FROM K8sContainerSample FACET podName, containerName WHERE namespace = '$namespace' SINCE 60 minutes ago LIMIT 1000
 
 ---
 
