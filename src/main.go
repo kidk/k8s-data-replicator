@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -38,12 +39,12 @@ import (
 
 // configuration set in config map
 var replicatorConfiguration struct {
-	Parent struct {
-		ApiToken  string `yaml:"apiToken"`
-		AccountId int    `yaml:"accountId"`
-	} `yaml:"parent"`
 	Queries []string `yaml:"queries,flow"`
 }
+
+// parent accountId and API token
+var parentAccountId int
+var parentUserToken string
 
 // clientset used to communicate with k8s
 var clientset *kubernetes.Clientset
@@ -51,9 +52,15 @@ var clientset *kubernetes.Clientset
 // graphQl client to communicate with New Relic
 var graphQLClient *graphql.Client
 
+// parent namespace
+var parentNamespace string
+
 func main() {
 	log.Println("Starting data replication")
 	log.Println("Connecting to K8s API")
+
+	// get parent namespace
+	parentNamespace = os.Getenv("POD_NAMESPACE")
 
 	// find local kubeconfig file, this is used for local development
 	var kubeconfig *string
@@ -95,12 +102,21 @@ func main() {
 		log.Fatal("Can't read config file", err.Error())
 	}
 
+	// read secrets from parent namespace
+	parentSecret, err := clientset.CoreV1().Secrets(parentNamespace).Get(context.TODO(), "nr-replicator-parent-secret", metav1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Parent secret not found in namespace '%s', error received: '%s'\n", parentNamespace, err.Error())
+		return
+	}
+	parentAccountId, _ = strconv.Atoi(string(parentSecret.Data["parentAccountId"]))
+	parentUserToken = string(parentSecret.Data["parentUserToken"])
+
 	// parse configuration  data
 	err = yaml.UnmarshalStrict(yamlConfig, &replicatorConfiguration)
 	if err != nil {
 		log.Fatal("Failed to parse file ", err)
 	} else {
-		log.Printf("Finished reading configuration, starting replication for account %d\n", replicatorConfiguration.Parent.AccountId)
+		log.Printf("Finished reading configuration, starting replication for account %d\n", parentAccountId)
 	}
 
 	// retrieve all namespaces
@@ -119,6 +135,9 @@ func main() {
 
 		processNamespace(namespaceName)
 	}
+
+	// We are done
+	log.Println("Done")
 }
 
 func processNamespace(namespace string) {
@@ -134,8 +153,8 @@ func processNamespace(namespace string) {
 
 	for _, query := range replicatorConfiguration.Queries {
 		query = strings.Replace(query, "$namespace", namespace, -1)
-		log.Printf("namespace '%s' - Running query: \n%s\n", namespace, query)
-		metrics := getMetrics(accountId, apiToken, query)
+		log.Printf("namespace '%s' - Running query: %s\n", namespace, query)
+		metrics := getMetrics(query)
 
 		// First create a Harvester.  APIKey is the only required field.
 		h, err := telemetry.NewHarvester(
@@ -160,7 +179,7 @@ func processNamespace(namespace string) {
 	}
 }
 
-func getMetrics(accountId int, apiToken string, query string) []telemetry.Gauge {
+func getMetrics(query string) []telemetry.Gauge {
 	// make a request
 	req := graphql.NewRequest(`
 		query ($accountId: Int!, $query: Nrql!){
@@ -177,9 +196,10 @@ func getMetrics(accountId int, apiToken string, query string) []telemetry.Gauge 
 			}
 		}
 	`)
-	req.Var("accountId", replicatorConfiguration.Parent.AccountId)
+
+	req.Var("accountId", parentAccountId)
 	req.Var("query", query)
-	req.Header.Set("API-Key", replicatorConfiguration.Parent.ApiToken)
+	req.Header.Set("API-Key", parentUserToken)
 
 	// define a Context for the request
 	ctx := context.TODO()
