@@ -154,7 +154,7 @@ func processNamespace(namespace string) {
 	for _, query := range replicatorConfiguration.Queries {
 		query = strings.Replace(query, "$namespace", namespace, -1)
 		log.Printf("namespace '%s' - Running query: %s\n", namespace, query)
-		metrics := getMetrics(query)
+		metrics := getMetrics(query, namespace)
 
 		// First create a Harvester.  APIKey is the only required field.
 		h, err := telemetry.NewHarvester(
@@ -179,7 +179,7 @@ func processNamespace(namespace string) {
 	}
 }
 
-func getMetrics(query string) []telemetry.Gauge {
+func getMetrics(query string, childNamespace string) []telemetry.Gauge {
 	// make a request
 	req := graphql.NewRequest(`
 		query ($accountId: Int!, $query: Nrql!){
@@ -210,7 +210,9 @@ func getMetrics(query string) []telemetry.Gauge {
 					Metadata struct {
 						Facets []string
 					}
-					Results     []map[string]interface{}
+					Results []struct {
+						Facet []string
+					}
 					TotalResult map[string]float64
 				}
 			}
@@ -229,10 +231,14 @@ func getMetrics(query string) []telemetry.Gauge {
 	for name, value := range respData.Actor.Account.Nrql.TotalResult {
 		// prep attributes
 		attributes := map[string]interface{}{}
-		for _, attribute := range respData.Actor.Account.Nrql.Metadata.Facets {
-			attributes[attribute] = respData.Actor.Account.Nrql.Results[0][attribute]
+		for key, attribute := range respData.Actor.Account.Nrql.Metadata.Facets {
+			attributes[attribute] = respData.Actor.Account.Nrql.Results[0].Facet[key]
 		}
 
+		// set namespace the container is running in
+		attributes["namespace"] = childNamespace
+
+		// add to metrics array
 		metrics = append(metrics, telemetry.Gauge{
 			Timestamp:  time.Now(),
 			Value:      value,
