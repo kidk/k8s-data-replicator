@@ -1,5 +1,38 @@
 ---
 
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: newrelic-data-replicator-clusterrolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: newrelic-data-replicator-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: newrelic-data-replicator-serviceaccount
+    namespace: {{NAMESPACE}}
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: newrelic-data-replicator-clusterrole
+rules:
+  - apiGroups: [""]
+    resources: ["secrets", "namespaces"]
+    verbs: ["get", "list"]
+
+---
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: newrelic-data-replicator-serviceaccount
+
+---
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -28,8 +61,7 @@ spec:
     spec:
       template:
         spec:
-          serviceAccountName: newrelic-bundle-newrelic-infrastructure
-
+          serviceAccountName: newrelic-data-replicator-serviceaccount
           containers:
           - name: newrelic-data-replicator
             image: ghcr.io/kidk/k8s-data-replicator:latest

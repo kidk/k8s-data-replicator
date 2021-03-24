@@ -31,7 +31,9 @@ For example the query `SELECT average(cpuUsedCores) as 'cpu-cores-utilization', 
 
 `manifest.yml` also contains the `schedule` of the replication, by default this is every minute `* * * * *`, but you can change this to every hour if needed `0 * * * *`. The default will create metrics every minute, so keep in mind that this will increase your New Relic data usage and bill. The increase depends on the number of queries in the schedule.
 
-Once you're happy with the config, deploy with the following command, don't forget to replace `{{NAMESPACE}}` with the namespace where New Relic K8s integration is running.
+In `manifest.yml` also contains a `{{NAMESPACE}}` variable at the top, which should be replaced with the namespace where New Relic K8s integration is running.
+
+Once you're happy with the config, deploy with the following command, don't forget to replace `{{NAMESPACE}}`
 
 `kubectl apply -n {{NAMESPACE}} -f manifest.yml`
 
